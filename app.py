@@ -13,7 +13,10 @@ from functools import wraps
 # Load environment variables
 load_dotenv()
 
+# Configure Flask app with production settings
 app = Flask(__name__)
+app.config['ENV'] = 'production'
+app.config['DEBUG'] = False
 
 # Configure rate limiting
 limiter = Limiter(
@@ -168,6 +171,22 @@ def generate_poem():
             "success": False
         }), 500
 
+# Configureer foutafhandeling voor productie
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return jsonify({
+        "error": "Te veel verzoeken. Probeer het later opnieuw.",
+        "success": False
+    }), 429
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    return jsonify({
+        "error": "Er is een serverfout opgetreden. Probeer het later opnieuw.",
+        "success": False
+    }), 500
+
 if __name__ == '__main__':
+    # Alleen voor lokale ontwikkeling
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-    app.run(debug=True, port=port)
+    app.run(host='0.0.0.0', port=port)
