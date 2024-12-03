@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 import json
 import sys
 import re
+import time
+from functools import wraps
 
 # Load environment variables
 load_dotenv()
@@ -17,13 +19,14 @@ app = Flask(__name__)
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    default_limits=["5 per minute", "100 per hour"]
+    default_limits=["2 per minute", "30 per hour"],
+    storage_uri="memory://"
 )
 
 # Configure OpenAI
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
-# Lijst met niet-toegestane woorden en thema's (voeg hier meer aan toe indien nodig)
+# Lijst met niet-toegestane woorden en thema's
 BLOCKED_TERMS = [
     'nsfw', 'xxx', 'seks', 'naakt', 'erotisch', 'erotiek', 'pornografie',
     'expliciet', 'adult', '18+', 'mature', 'seksueel'
@@ -34,12 +37,44 @@ def contains_blocked_content(text):
     text = text.lower()
     return any(term in text for term in BLOCKED_TERMS)
 
+def retry_on_rate_limit(max_retries=3, initial_wait=5):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            while retries < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if 'rate limit' in str(e).lower() and retries < max_retries - 1:
+                        wait_time = initial_wait * (2 ** retries)  # Exponential backoff
+                        time.sleep(wait_time)
+                        retries += 1
+                        continue
+                    if 'rate limit' in str(e).lower():
+                        return jsonify({
+                            "error": "Het systeem is momenteel erg druk. Probeer het over enkele minuten opnieuw.",
+                            "success": False,
+                            "rate_limit": True
+                        }), 429
+                    return jsonify({
+                        "error": "Er is een fout opgetreden. Probeer het opnieuw.",
+                        "success": False
+                    }), 500
+            return jsonify({
+                "error": "Maximum aantal pogingen bereikt. Probeer het later opnieuw.",
+                "success": False
+            }), 429
+        return wrapper
+    return decorator
+
 @app.route('/')
 def home():
     return render_template('index.html')
 
 @app.route('/generate-poem', methods=['POST'])
-@limiter.limit("5 per minute")
+@limiter.limit("2 per minute")
+@retry_on_rate_limit()
 def generate_poem():
     try:
         data = request.json
@@ -97,7 +132,7 @@ def generate_poem():
 
         # Call OpenAI API with new client
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4-1106-preview",  # Gebruik een ander model
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
@@ -118,9 +153,12 @@ def generate_poem():
         return jsonify({"poem": poem, "success": True})
 
     except Exception as e:
-        return jsonify({"error": str(e), "success": False}), 500
+        app.logger.error(f"Error generating poem: {str(e)}")
+        return jsonify({
+            "error": "Er is een fout opgetreden. Probeer het over enkele minuten opnieuw.",
+            "success": False
+        }), 500
 
 if __name__ == '__main__':
-    # Get port from command line argument or use default 8000
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
     app.run(debug=True, port=port)

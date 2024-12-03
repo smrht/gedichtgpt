@@ -4,3 +4,4 @@ openai==1.6.1
 flask-limiter==3.5.0
 redis==5.0.1
 httpx>=0.24.1
+gunicorn==21.2.0

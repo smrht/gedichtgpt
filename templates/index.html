@@ -121,7 +121,17 @@
                 <div id="poem" class="whitespace-pre-wrap p-4 bg-gray-50 rounded border"></div>
             </div>
 
-            <div id="error" class="mt-4 hidden text-red-600 p-4 bg-red-100 rounded"></div>
+            <div id="error" class="mt-4 hidden p-4 bg-red-100 rounded">
+                <div class="flex items-center">
+                    <svg class="w-6 h-6 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span class="text-red-600" id="error-message"></span>
+                </div>
+                <div id="retry-info" class="mt-2 text-sm text-red-500 hidden">
+                    Het systeem probeert het automatisch opnieuw... Even geduld.
+                </div>
+            </div>
         </div>
     </div>
 
@@ -161,12 +171,17 @@
             const loading = document.querySelector('.loading');
             const result = document.getElementById('result');
             const errorDiv = document.getElementById('error');
+            const errorMessage = document.getElementById('error-message');
+            const retryInfo = document.getElementById('retry-info');
             const poemDiv = document.getElementById('poem');
+            const submitButton = document.querySelector('button[type="submit"]');
 
             // Reset previous results
             result.classList.add('hidden');
             errorDiv.classList.add('hidden');
+            retryInfo.classList.add('hidden');
             loading.classList.add('active');
+            submitButton.disabled = true;
 
             try {
                 const formData = {
@@ -193,13 +208,18 @@
                     poemDiv.textContent = data.poem;
                     result.classList.remove('hidden');
                 } else {
-                    throw new Error(data.error || 'Er is iets misgegaan bij het genereren van het gedicht.');
+                    errorMessage.textContent = data.error;
+                    errorDiv.classList.remove('hidden');
+                    if (data.rate_limit) {
+                        retryInfo.classList.remove('hidden');
+                    }
                 }
             } catch (error) {
-                errorDiv.textContent = error.message;
+                errorMessage.textContent = "Er is een fout opgetreden. Probeer het later opnieuw.";
                 errorDiv.classList.remove('hidden');
             } finally {
                 loading.classList.remove('active');
+                submitButton.disabled = false;
             }
         });
     </script>
