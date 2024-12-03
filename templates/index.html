@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GedichtGPT - AI Gedichten Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .loading {
+            display: none;
+        }
+        .loading.active {
+            display: flex;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-2xl">
+        <h1 class="text-4xl font-bold text-center mb-8 text-indigo-600">GedichtGPT</h1>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <form id="poemForm" class="space-y-4">
+                <div>
+                    <label class="block text-gray-700 mb-2" for="theme">Thema</label>
+                    <input type="text" id="theme" name="theme" 
+                           class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                           placeholder="Bijv: liefde, sinterklaas, vriendschap, kerst, verjaardag, speciale gelegenheid">
+                </div>
+
+                <div>
+                    <label class="block text-gray-700 mb-2" for="style">Stijl</label>
+                    <select id="style" name="style" 
+                            class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                        <optgroup label="Algemene stijlen">
+                            <option value="eenvoudig">Eenvoudig (makkelijk te begrijpen)</option>
+                            <option value="modern">Modern en vrij</option>
+                            <option value="rijmend">Rijmend (traditioneel met rijm)</option>
+                            <option value="kinderlijk">Kinderlijk (speels en simpel)</option>
+                            <option value="grappig">Grappig (met humor)</option>
+                        </optgroup>
+                        <optgroup label="Speciale vormen">
+                            <option value="haiku">Haiku (3 regels: 5-7-5 lettergrepen)</option>
+                            <option value="limerick">Limerick (5 grappige rijmende regels)</option>
+                            <option value="sonnet">Sonnet (14 regels met vast rijmschema)</option>
+                            <option value="acrostichon">Acrostichon (eerste letters vormen een woord)</option>
+                        </optgroup>
+                        <optgroup label="Gevoelsmatig">
+                            <option value="romantisch">Romantisch (liefdevol en warm)</option>
+                            <option value="nostalgisch">Nostalgisch (herinneringen)</option>
+                            <option value="inspirerend">Inspirerend (motiverend)</option>
+                            <option value="meditatief">Meditatief (rustig en beschouwend)</option>
+                        </optgroup>
+                    </select>
+                    <div class="mt-2">
+                        <div id="style-info" class="text-sm text-gray-600 hidden"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-gray-700 mb-2" for="mood">Stemming</label>
+                    <select id="mood" name="mood" 
+                            class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                        <option value="vrolijk">Vrolijk</option>
+                        <option value="melancholisch">Melancholisch</option>
+                        <option value="romantisch">Romantisch</option>
+                        <option value="inspirerend">Inspirerend</option>
+                        <option value="rustig">Rustig</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-gray-700 mb-2" for="season">Seizoen (optioneel)</label>
+                    <select id="season" name="season" 
+                            class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                        <option value="">Geen specifiek seizoen</option>
+                        <option value="lente">Lente</option>
+                        <option value="zomer">Zomer</option>
+                        <option value="herfst">Herfst</option>
+                        <option value="winter">Winter</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-gray-700 mb-2" for="length">Lengte</label>
+                    <select id="length" name="length" 
+                            class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                        <option value="kort">Kort</option>
+                        <option value="medium">Gemiddeld</option>
+                        <option value="lang">Lang</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-gray-700 mb-2" for="recipient">Voor wie is het gedicht?</label>
+                    <input type="text" id="recipient" name="recipient" 
+                           class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                           placeholder="Bijvoorbeeld: mijn moeder, Lisa, mijn beste vriend">
+                </div>
+
+                <div>
+                    <label class="block text-gray-700 mb-2" for="excluded_words">Woorden die niet in het gedicht mogen voorkomen (optioneel)</label>
+                    <input type="text" id="excluded_words" name="excluded_words" 
+                           class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                           placeholder="Bijvoorbeeld: roos, zee, zon (gescheiden door komma's)">
+                    <p class="text-sm text-gray-500 mt-1">Laat leeg als je geen woorden wilt uitsluiten</p>
+                </div>
+
+                <button type="submit" 
+                        class="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700 transition duration-200">
+                    Genereer Gedicht
+                </button>
+            </form>
+
+            <div class="loading mt-4 justify-center items-center">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                <span class="ml-2 text-gray-600">Gedicht wordt gegenereerd...</span>
+            </div>
+
+            <div id="result" class="mt-6 hidden">
+                <h2 class="text-xl font-semibold mb-2 text-gray-700">Jouw Gedicht:</h2>
+                <div id="poem" class="whitespace-pre-wrap p-4 bg-gray-50 rounded border"></div>
+            </div>
+
+            <div id="error" class="mt-4 hidden text-red-600 p-4 bg-red-100 rounded"></div>
+        </div>
+    </div>
+
+    <script>
+        // Stijl informatie toevoegen
+        const styleInfo = {
+            'eenvoudig': 'Een gedicht in simpele taal dat door iedereen begrepen kan worden.',
+            'modern': 'Een hedendaags gedicht zonder vaste regels, in vrije vorm.',
+            'rijmend': 'Een traditioneel gedicht waarbij de regels rijmen.',
+            'kinderlijk': 'Een vrolijk, speels gedicht met eenvoudige woorden, perfect voor kinderen.',
+            'grappig': 'Een luchtig gedicht met humor en plezier.',
+            'haiku': 'Een Japanse dichtvorm met drie regels van 5, 7 en 5 lettergrepen, vaak over de natuur.',
+            'limerick': 'Een grappig gedicht van vijf regels met een vast rijmschema (aabba).',
+            'sonnet': 'Een klassieke vorm met 14 regels en een vast rijmschema, vaak over liefde of natuur.',
+            'acrostichon': 'Een gedicht waarbij de eerste letters van elke regel samen een woord vormen.',
+            'romantisch': 'Een gevoelig gedicht over liefde en diepe emoties.',
+            'nostalgisch': 'Een gedicht dat herinneringen en verlangen naar vroeger oproept.',
+            'inspirerend': 'Een gedicht dat motiveert en positieve gevoelens oproept.',
+            'meditatief': 'Een rustig, beschouwend gedicht dat aanzet tot nadenken.'
+        };
+
+        // Toon stijl informatie wanneer een stijl wordt geselecteerd
+        document.getElementById('style').addEventListener('change', function() {
+            const info = styleInfo[this.value];
+            const infoDiv = document.getElementById('style-info');
+            if (info) {
+                infoDiv.textContent = info;
+                infoDiv.classList.remove('hidden');
+            } else {
+                infoDiv.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('poemForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const loading = document.querySelector('.loading');
+            const result = document.getElementById('result');
+            const errorDiv = document.getElementById('error');
+            const poemDiv = document.getElementById('poem');
+
+            // Reset previous results
+            result.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+            loading.classList.add('active');
+
+            try {
+                const formData = {
+                    theme: document.getElementById('theme').value,
+                    style: document.getElementById('style').value,
+                    mood: document.getElementById('mood').value,
+                    season: document.getElementById('season').value,
+                    length: document.getElementById('length').value,
+                    recipient: document.getElementById('recipient').value,
+                    excluded_words: document.getElementById('excluded_words').value
+                };
+
+                const response = await fetch('/generate-poem', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    poemDiv.textContent = data.poem;
+                    result.classList.remove('hidden');
+                } else {
+                    throw new Error(data.error || 'Er is iets misgegaan bij het genereren van het gedicht.');
+                }
+            } catch (error) {
+                errorDiv.textContent = error.message;
+                errorDiv.classList.remove('hidden');
+            } finally {
+                loading.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>
