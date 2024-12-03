@@ -24,7 +24,16 @@ limiter = Limiter(
 )
 
 # Configure OpenAI
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+api_key = os.getenv('OPENAI_API_KEY')
+if not api_key:
+    raise ValueError("OPENAI_API_KEY environment variable is not set")
+
+client = OpenAI(
+    api_key=api_key,
+    timeout=30.0,  # 30 seconds timeout
+    max_retries=2,
+    base_url="https://api.openai.com/v1"
+)
 
 # Lijst met niet-toegestane woorden en thema's
 BLOCKED_TERMS = [
@@ -132,7 +141,7 @@ def generate_poem():
 
         # Call OpenAI API with new client
         response = client.chat.completions.create(
-            model="gpt-4-1106-preview",  # Gebruik een ander model
+            model="gpt-4o-mini",  # Gebruik een ander model
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
