@@ -19,7 +19,6 @@ load_dotenv()
 app = Flask(__name__)
 app.config['ENV'] = 'production'
 app.config['DEBUG'] = False
-port = int(os.environ.get("PORT", 8000))
 
 
 
@@ -218,6 +217,11 @@ def not_found_error(e):
     return error_response("Pagina niet gevonden.", 404)
 
 # Remove development server code
+# Zorg dat de port correct wordt opgepikt
+port = os.getenv('PORT', '8000')
+if not port:
+    port = '8000'
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=int(port))
 
