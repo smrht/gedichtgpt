@@ -3,6 +3,9 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from openai import OpenAI
 import os
+import logging
+from logging.handlers import RotatingFileHandler
+from flask_talisman import Talisman
 from dotenv import load_dotenv
 import json
 import sys
@@ -18,12 +21,33 @@ app = Flask(__name__)
 app.config['ENV'] = 'production'
 app.config['DEBUG'] = False
 
-# Configure rate limiting
+# Add security headers
+Talisman(app, 
+    content_security_policy={
+        'default-src': "'self'",
+        'script-src': ["'self'", "'unsafe-inline'"],
+        'style-src': ["'self'", "'unsafe-inline'"],
+    },
+    force_https=True
+)
+
+# Configure logging
+if not app.debug:
+    file_handler = RotatingFileHandler('app.log', maxBytes=10240, backupCount=10)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+    ))
+    file_handler.setLevel(logging.INFO)
+    app.logger.addHandler(file_handler)
+    app.logger.setLevel(logging.INFO)
+    app.logger.info('GedichtGPT startup')
+
+# Configure rate limiting with Redis
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
     default_limits=["2 per minute", "30 per hour"],
-    storage_uri="memory://"
+    storage_uri=os.getenv('REDIS_URL', "redis://localhost:6379")
 )
 
 # Configure OpenAI
@@ -79,6 +103,15 @@ def retry_on_rate_limit(max_retries=3, initial_wait=5):
             }), 429
         return wrapper
     return decorator
+
+def error_response(message, status_code):
+    """Standardized error response"""
+    response = jsonify({
+        'error': message,
+        'status_code': status_code
+    })
+    response.status_code = status_code
+    return response
 
 @app.route('/')
 def home():
@@ -171,22 +204,22 @@ def generate_poem():
             "success": False
         }), 500
 
-# Configureer foutafhandeling voor productie
 @app.errorhandler(429)
 def ratelimit_handler(e):
-    return jsonify({
-        "error": "Te veel verzoeken. Probeer het later opnieuw.",
-        "success": False
-    }), 429
+    app.logger.warning(f"Rate limit exceeded for IP: {get_remote_address()}")
+    return error_response("Te veel verzoeken. Probeer het later opnieuw.", 429)
 
 @app.errorhandler(500)
 def internal_server_error(e):
-    return jsonify({
-        "error": "Er is een serverfout opgetreden. Probeer het later opnieuw.",
-        "success": False
-    }), 500
+    app.logger.error(f"Server error: {str(e)}")
+    return error_response("Er is een serverfout opgetreden. Probeer het later opnieuw.", 500)
 
+@app.errorhandler(404)
+def not_found_error(e):
+    app.logger.info(f"Page not found: {request.url}")
+    return error_response("Pagina niet gevonden.", 404)
+
+# Remove development server code
 if __name__ == '__main__':
-    # Alleen voor lokale ontwikkeling
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-    app.run(host='0.0.0.0', port=port)
+    # Use production server (Gunicorn) instead
+    app.run()

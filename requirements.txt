@@ -5,3 +5,6 @@ httpx==0.25.2
 flask-limiter==3.5.0
 redis==5.0.1
 gunicorn==21.2.0
+flask-talisman==1.1.0
+gevent==23.9.1
+greenlet>=1.0.0
