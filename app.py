@@ -4,11 +4,10 @@ from flask_limiter.util import get_remote_address
 from openai import OpenAI
 import os
 import logging
-from logging.handlers import RotatingFileHandler
+import sys
 from flask_talisman import Talisman
 from dotenv import load_dotenv
 import json
-import sys
 import re
 import time
 from functools import wraps
@@ -20,6 +19,16 @@ load_dotenv()
 app = Flask(__name__)
 app.config['ENV'] = 'production'
 app.config['DEBUG'] = False
+port = int(os.environ.get("PORT", 8000))
+
+
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s: %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
 
 # Add security headers
 Talisman(app, 
@@ -28,26 +37,15 @@ Talisman(app,
         'script-src': ["'self'", "'unsafe-inline'"],
         'style-src': ["'self'", "'unsafe-inline'"],
     },
-    force_https=True
+    force_https=False  # Set to True in production with SSL
 )
 
-# Configure logging
-if not app.debug:
-    file_handler = RotatingFileHandler('app.log', maxBytes=10240, backupCount=10)
-    file_handler.setFormatter(logging.Formatter(
-        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-    ))
-    file_handler.setLevel(logging.INFO)
-    app.logger.addHandler(file_handler)
-    app.logger.setLevel(logging.INFO)
-    app.logger.info('GedichtGPT startup')
-
-# Configure rate limiting with Redis
+# Configure rate limiting with memory storage instead of Redis
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
     default_limits=["2 per minute", "30 per hour"],
-    storage_uri=os.getenv('REDIS_URL', "redis://localhost:6379")
+    storage_uri="memory://"
 )
 
 # Configure OpenAI
@@ -198,7 +196,7 @@ def generate_poem():
         return jsonify({"poem": poem, "success": True})
 
     except Exception as e:
-        app.logger.error(f"Error generating poem: {str(e)}")
+        logging.error(f"Error generating poem: {str(e)}")
         return jsonify({
             "error": "Er is een fout opgetreden. Probeer het over enkele minuten opnieuw.",
             "success": False
@@ -206,20 +204,20 @@ def generate_poem():
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
-    app.logger.warning(f"Rate limit exceeded for IP: {get_remote_address()}")
+    logging.warning(f"Rate limit exceeded for IP: {get_remote_address()}")
     return error_response("Te veel verzoeken. Probeer het later opnieuw.", 429)
 
 @app.errorhandler(500)
 def internal_server_error(e):
-    app.logger.error(f"Server error: {str(e)}")
+    logging.error(f"Server error: {str(e)}")
     return error_response("Er is een serverfout opgetreden. Probeer het later opnieuw.", 500)
 
 @app.errorhandler(404)
 def not_found_error(e):
-    app.logger.info(f"Page not found: {request.url}")
+    logging.info(f"Page not found: {request.url}")
     return error_response("Pagina niet gevonden.", 404)
 
 # Remove development server code
 if __name__ == '__main__':
-    # Use production server (Gunicorn) instead
-    app.run()
+    app.run(host='0.0.0.0', port=port)
+
